@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TeamTalk Calendar</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <style>
+    body {font-family:"Segoe UI",sans-serif; margin:0; background:#f3f2f1;}
+    .topbar {height:48px; display:flex; align-items:center; padding:0 .75rem; background:#fff; border-bottom:1px solid #ddd;}
+    .calendar-container {padding:1rem; flex:1; overflow:auto;}
+    .fc .fc-toolbar-title {font-size:1.25rem;}
+    .sidebar {width:72px; background:#1f1f1f; display:flex; flex-direction:column; align-items:center; padding:1rem 0; position:fixed; top:0; bottom:0;}
+    .sidebar a {color:#bbb; margin:1rem 0; width:48px; height:48px; display:flex; align-items:center; justify-content:center; text-decoration:none; border-radius:8px; transition:background .2s,color .2s;}
+    .sidebar a:hover, .sidebar a.active {background:#6264A7; color:#fff;}
+    .main {margin-left:72px;}
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <a href="/" title="Chat"><i class="fa-solid fa-comment-dots"></i></a>
+    <a href="/calendar" class="active" title="Calendar"><i class="fa-solid fa-calendar-days"></i></a>
+    <a href="#" title="Groups" data-bs-toggle="modal" data-bs-target="#createGroupModal"><i class="fa-solid fa-users"></i></a>
+    <a href="#" title="Voice Call"><i class="fa-solid fa-phone"></i></a>
+    <a href="#" title="Video Call"><i class="fa-solid fa-video"></i></a>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <div style="flex:1;"><strong>Calendar</strong></div>
+      <div class="dropdown ms-auto">
+        <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+          <span style="margin-right:.5rem;">{{ active_user }}</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/logout">Sign out</a></li>
+        </ul>
+      </div>
+    </div>
+ 
+    <div class="calendar-container">
+      <div id="calendar"></div>
+    </div>
+  </div>
+ 
+  <!-- Meeting Modal -->
+  <div class="modal fade" id="meetingModal" tabindex="-1">
+    <div class="modal-dialog">
+      <form id="meetingForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">New Meeting</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="meetingId">
+          <div class="mb-2">
+            <label class="form-label">Title</label>
+            <input required class="form-control" id="title" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="description"></textarea>
+          </div>
+          <div class="row mb-2">
+            <div class="col">
+              <label class="form-label">Start</label>
+              <input type="datetime-local" class="form-control" id="start" required />
+            </div>
+            <div class="col">
+              <label class="form-label">End</label>
+              <input type="datetime-local" class="form-control" id="end" />
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Participants</label>
+            <div id="participantsList" style="max-height:150px; overflow:auto; border:1px solid #ccc; padding:.5rem; border-radius:.25rem;">
+              {% for u in users %}
+                <div class="form-check">
+                  <input class="form-check-input participant-checkbox" type="checkbox" value="{{ u.id }}" id="user_{{ u.id }}">
+                  <label class="form-check-label" for="user_{{ u.id }}">{{ u.name }}</label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Call Link (optional)</label>
+            <input class="form-control" id="call_link" placeholder="https://..." />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="deleteBtn" class="btn btn-danger me-auto" style="display:none;">Delete</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+ 
+  <!-- scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script>
+    const calendarEl = document.getElementById('calendar');
+    let calendar;
+    let currentEvent = null;
+    const meetingModal = new bootstrap.Modal(document.getElementById('meetingModal'));
+    const meetingForm = document.getElementById('meetingForm');
+ 
+    function fetchEvents(info, successCallback) {
+      fetch('/api/meetings')
+        .then(r => r.json())
+        .then(data => {
+          successCallback(data);
+        });
+    }
+ 
+    function resetForm() {
+      document.getElementById('meetingId').value = '';
+      document.getElementById('title').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('start').value = '';
+      document.getElementById('end').value = '';
+      document.getElementById('call_link').value = '';
+      document.querySelectorAll('.participant-checkbox').forEach(cb => cb.checked = false);
+      document.getElementById('deleteBtn').style.display = 'none';
+      document.getElementById('modalTitle').textContent = 'New Meeting';
+    }
+ 
+    function populateForm(event) {
+      document.getElementById('meetingId').value = event.id;
+      document.getElementById('title').value = event.title;
+      document.getElementById('description').value = event.extendedProps.description || '';
+      document.getElementById('start').value = event.startStr.slice(0,16);
+      document.getElementById('end').value = event.endStr ? event.endStr.slice(0,16) : '';
+      document.getElementById('call_link').value = event.extendedProps.call_link || '';
+      // participants
+      document.querySelectorAll('.participant-checkbox').forEach(cb => {
+        cb.checked = (event.extendedProps.participants || []).includes(parseInt(cb.value));
+      });
+      document.getElementById('deleteBtn').style.display = 'inline-block';
+      document.getElementById('modalTitle').textContent = 'Edit Meeting';
+    }
+ 
+    document.addEventListener('DOMContentLoaded', function() {
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        editable: false,
+        selectable: true,
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        events: fetchEvents,
+        dateClick: function(info) {
+          resetForm();
+          document.getElementById('start').value = info.dateStr + 'T09:00';
+          meetingModal.show();
+          currentEvent = null;
+        },
+        eventClick: function(info) {
+          currentEvent = info.event;
+          populateForm({
+            id: info.event.id,
+            title: info.event.title,
+            startStr: info.event.startStr,
+            endStr: info.event.endStr,
+            extendedProps: info.event.extendedProps
+          });
+          meetingModal.show();
+        }
+      });
+      calendar.render();
+ 
+      // form submit
+      meetingForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('meetingId').value;
+        const payload = {
+          title: document.getElementById('title').value,
+          description: document.getElementById('description').value,
+          start: document.getElementById('start').value,
+          end: document.getElementById('end').value || null,
+          call_link: document.getElementById('call_link').value || null,
+          participants: Array.from(document.querySelectorAll('.participant-checkbox:checked')).map(cb => parseInt(cb.value))
+        };
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/meetings/${id}` : '/api/meetings';
+        fetch(url, {
+          method,
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        }).then(r => r.json()).then(res => {
+          if (res.success || res.id) {
+            calendar.refetchEvents();
+            meetingModal.hide();
+          } else {
+            alert('Error: ' + (res.error || 'Failed'));
+          }
+        });
+      });
+ 
+      // delete
+      document.getElementById('deleteBtn').addEventListener('click', function() {
+        const id = document.getElementById('meetingId').value;
+        if (!id) return;
+        if (!confirm('Delete this meeting?')) return;
+        fetch(`/api/meetings/${id}`, {method:'DELETE'}).then(r => r.json()).then(res => {
+          if (res.success) {
+            calendar.refetchEvents();
+            meetingModal.hide();
+          } else {
+            alert('Error deleting');
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

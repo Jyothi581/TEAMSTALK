@@ -1,0 +1,1703 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>TeamTalk</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Bootstrap & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <!-- Socket.IO (single version) -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    // Create ONE shared socket early so all later scripts use the same connection
+    window.socket = io();
+  </script>
+
+  <style>
+    :root {
+  --clr-primary: #4f46e5;
+  --clr-primary-light: #eef2ff;
+  --clr-sidebar: #1f2937;
+  --clr-sidebar-hover: #374151;
+  --clr-bg: #f9fafb;
+  --clr-text: #111827;
+}
+
+html {
+  font-size: 14px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: var(--clr-bg);
+  color: var(--clr-text);
+}
+
+/* === Layout === */
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 72px;
+  background: var(--clr-sidebar);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0;
+  gap: 1rem;
+}
+
+.sidebar a {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  color: #9ca3af;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  text-decoration: none !important;
+}
+
+
+.sidebar a:hover {
+  background: var(--clr-sidebar-hover);
+  color: #fff;
+}
+
+.sidebar a.active {
+  background: var(--clr-primary);
+  color: #fff;
+}
+
+/* === Main panel === */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* === Topbar === */
+.topbar {
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  gap: 0.5rem;
+}
+
+.search-input {
+  flex: 1;
+  max-width: 300px;
+}
+
+.dropdown-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-toggle img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+/* === Content layout === */
+.content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* === Chat list === */
+.chat-list {
+  width: 280px;
+  background: #111827;
+  color: #f3f4f6;
+  overflow-y: auto;
+  padding: 1rem 0.75rem;
+}
+
+.chat-list small {
+  color: #9ca3af;
+  margin-bottom: 0.25rem;
+  display: inline-block;
+  padding-left: 0.25rem;
+}
+
+.list-group-item {
+  background: transparent;
+  color: #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  font-size: 0.9rem;
+  border-radius: 0.375rem;
+}
+
+.list-group-item:hover {
+  background: var(--clr-sidebar-hover);
+}
+
+.list-group-item.active {
+  background: var(--clr-primary);
+  color: #fff;
+}
+
+.avatar-sm {
+  width: 32px;
+  height: 32px;
+  background: #6b7280;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-right: 0.5rem;
+  position: relative;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #111827;
+}
+
+.status-text {
+  font-size: 0.7rem;
+  color: #9ca3af;
+}
+
+/* === Chat pane === */
+.chat-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f9fafb;
+}
+
+.chat-header {
+  height: 56px;
+  padding: 0 1rem;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.chat-header .actions i {
+  font-size: 1.2rem;
+  margin-left: 1rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.chat-header .actions i:hover {
+  color: var(--clr-primary);
+}
+
+/* === Messages === */
+.messages {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-wrapper.left {
+  align-items: flex-start;
+}
+
+.message-wrapper.right {
+  align-items: flex-end;
+}
+
+.message-bubble {
+  max-width: 70%;
+  padding: 0.6rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  word-break: break-word;
+}
+
+.message-bubble.left {
+  background: #fff;
+  color: #111827;
+}
+
+.message-bubble.right {
+  background: var(--clr-primary-light);
+  color: #111827;
+}
+
+.sender {
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  color: #6b7280;
+}
+
+.timestamp {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 0.25rem;
+}
+
+/* === Composer === */
+.composer {
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.composer textarea {
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 1rem;
+  padding: 0.6rem 1rem;
+  resize: none;
+  font-size: 0.9rem;
+  min-height: 2.5rem;
+  max-height: 6rem;
+}
+
+.composer textarea:focus {
+  border-color: var(--clr-primary);
+  outline: none;
+}
+
+.composer .controls button {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.composer .controls button:hover {
+  color: var(--clr-primary);
+}
+
+#member-drawer .offcanvas-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  max-height: none;
+}
+
+.member-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.25rem;
+}
+
+#member-list,
+#add-user-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  margin-bottom: 1rem;
+}
+
+/* Scrollbar styling */
+#member-list::-webkit-scrollbar,
+#add-user-list::-webkit-scrollbar {
+  width: 6px;
+}
+#member-list::-webkit-scrollbar-thumb,
+#add-user-list::-webkit-scrollbar-thumb {
+  background-color: #ced4da;
+  border-radius: 3px;
+}
+
+/* Each user row */
+.member-row {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  transition: background 0.2s ease;
+}
+.member-row:last-child {
+  border-bottom: none;
+}
+.member-row:hover {
+  background-color: #e9ecef;
+  border-radius: 0.375rem;
+}
+
+/* Checkbox + avatar + name */
+.member-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin-left: 2px;
+}
+
+/* Avatar */
+.member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #6c757d;
+  color: #fff;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Search input */
+.input-group.mb-3 input.form-control {
+  border-radius: 0.375rem;
+}
+
+/* Buttons */
+.btn-outline-danger,
+.btn-outline-primary,
+.btn-success {
+  font-weight: 500;
+  border-radius: 0.375rem;
+}
+
+/* Section spacing */
+.add-section,
+.remove-section {
+  margin-top: 1.5rem;
+}
+
+/* Make list items in create group modal have dark text and hover with white text on dark bg */
+#createGroupModal .list-group-item {
+  background-color: #fff !important;
+  color: #212529 !important; /* Black text */
+  transition: background 0.2s, color 0.2s;
+}
+
+#createGroupModal .list-group-item:hover {
+  background-color: var(--clr-primary) !important; /* Or #0d6efd for Bootstrap blue */
+  color: #fff !important;
+}
+
+#createGroupModal #member-select-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  background-color: #fff;
+  padding: 0.5rem;
+}
+
+/* Optional: Style the scrollbar */
+#createGroupModal #member-select-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#createGroupModal #member-select-list::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 3px;
+}
+
+/* Common styles */
+.call-modal, .incoming-modal {
+  position: fixed;
+  z-index: 9999;
+  background: white;
+  color: #333;
+  border-radius: 12px;
+  padding: 20px 30px;
+  max-width: 300px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  font-family: 'Segoe UI', sans-serif;
+  display: none;
+}
+
+/* Incoming call modal */
+.incoming-modal {
+  top: 20px;
+  right: 20px;
+  text-align: center;
+}
+
+.incoming-text {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 15px;
+}
+
+/* Call in-progress modal */
+.call-modal {
+  bottom: 20px;
+  right: 20px;
+}
+
+.call-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.call-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.call-timer {
+  font-family: monospace;
+  font-size: 14px;
+  color: #555;
+}
+
+/* Buttons */
+.call-actions {
+  text-align: center;
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  margin: 0 5px;
+  transition: background-color 0.2s;
+}
+
+.btn-accept {
+  background-color: #4caf50;
+  color: white;
+}
+
+.btn-reject {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-hangup {
+  background-color: #e53935;
+  color: white;
+}
+
+/* ===== Scheduler overlay (added) ===== */
+#schedule-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:9999;}
+#schedule-card{background:#fff;border-radius:12px;padding:16px;width:320px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-family:'Segoe UI',sans-serif}
+#schedule-card h4{margin:0 0 8px;font-size:16px}
+#schedule-card .row{display:flex;gap:8px;align-items:center}
+#schedule-card input[type="datetime-local"]{width:100%;padding:8px}
+#schedule-card .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.scheduled-note{font-size:12px;color:#888;margin-top:2px}
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <a href="/" class="active" title="Chat">
+        <i class="fa-solid fa-comment-dots"></i>
+      </a>
+      <a href="/calendar" title="Calendar">
+        <i class="fa-solid fa-calendar-days"></i>
+      </a>
+      <a href="#" title="Group Members" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+        <i class="fa-solid fa-users"></i>
+      </a>
+      <a href="#" title="Voice Call" id="sidebar-voice-call">
+        <i class="fa-solid fa-phone"></i>
+      </a>
+      <a href="#" title="Video Call" id="sidebar-video-call">
+        <i class="fa-solid fa-video"></i>
+      </a>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="search-input input-group me-2">
+          <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <input id="search-box" type="text" class="form-control" placeholder="Search…">
+        </div>
+        <div class="ms-auto dropdown">
+          <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown">
+            <img src="{{ avatar_url }}" width="28" height="28" onerror="this.src='/static/avatars/default.png'">
+            <span style="font-size:.85rem; margin-left:.25rem;">{{ active_user }}</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end p-2">
+            <form action="{{ url_for('upload_avatar') }}" method="POST" enctype="multipart/form-data" class="mb-2">
+              <input name="avatar" type="file" class="form-control form-control-sm" accept="image/*" required>
+              <button class="btn btn-primary btn-sm w-100 mt-1" type="submit">
+                Upload
+              </button>
+            </form>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#">My Profile</a></li>
+            <li><a class="dropdown-item" href="/logout">Sign out</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="chat-list">
+          <button class="btn btn-outline-light w-100 mb-2" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+            ➕ Create Group
+          </button>
+          <small class="ps-3">Chatrooms</small>
+          <div class="list-group list-group-flush mb-3" id="room-list">
+            {% for r in chatrooms %}
+            <a href="/?chatroom={{ r }}" class="list-group-item direct-chat{% if r==active_room and not active_receiver %} active{% endif %}">
+  <div class="d-flex align-items-center">
+    <div class="avatar-sm">{{ r[0] }}</div>
+    <div>{{ r }}</div>
+  </div>
+
+  <div class="chat-info text-end">
+    {% if last_rooms[r] %}
+      <span class="time-sm">{{ last_rooms[r] }}</span>
+    {% endif %}
+  </div>
+</a>
+            {% endfor %}
+          </div>
+
+          <div class="modal fade" id="createGroupModal" tabindex="-1">
+            <div class="modal-dialog">
+              <form method="POST" action="/create_group" class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Create New Group</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <input type="text" class="form-control mb-3" name="group_name" placeholder="Group Name" required>
+
+                  <!-- Search Bar -->
+                  <input type="text" class="form-control mb-2" placeholder="Search user..." onkeyup="filterMembers(this)">
+
+                  <!-- Selected Members -->
+                  <div id="selected-display" class="mb-2"></div>
+
+                  <div class="form-group">
+  <label>Select Members</label>
+  <div class="list-group" id="member-select-list">
+    {% for u in users %}
+    <a href="#" class="list-group-item list-group-item-action" data-username="{{ u.id }}">
+      {% if u.gender=='Female' %}👩{% else %}👨{% endif %} {{ u.name }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+                  <input type="hidden" name="members" id="selected-members">
+                </div>
+                <div class="modal-footer">
+                  <button type="submit" class="btn btn-primary">Create Group</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <small class="ps-3">Direct Chats</small>
+          <div class="list-group list-group-flush" id="user-list">
+            {% for u in users %}
+            <a href="/?receiver={{ u.name }}" class="list-group-item direct-chat{% if u.name==active_receiver %} active{% endif %}">
+  <div class="d-flex align-items-center">
+    <div class="avatar-sm">
+      {% if u.gender=='Female' %}👩{% else %}👨{% endif %}
+    </div>
+    <div>{{ u.name }}</div>
+  </div>
+
+  <div class="chat-info text-end">
+    {% if unread_counts[u.name] > 0 %}
+      <span class="badge bg-danger">{{ unread_counts[u.name] }}</span>
+    {% endif %}
+    <span class="status-text">
+      {% if u.name in online_users %}
+        <span class="text-success">Online</span>
+      {% elif u.last_seen %}
+        {% set dt = u.last_seen %}
+        {% if dt.date() == now().date() %}
+          Last seen today at {{ dt.strftime('%I:%M %p') }}
+        {% elif dt.date() == (now() - timedelta(days=1)).date() %}
+          Last seen yesterday at {{ dt.strftime('%I:%M %p') }}
+        {% else %}
+          Last seen on {{ dt.strftime('%b %d') }} at {{ dt.strftime('%I:%M %p') }}
+        {% endif %}
+      {% endif %}
+    </span>
+  </div>
+</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="chat-pane">
+          <input type="hidden" id="chatroom" value="{{ active_room or '' }}">
+          <input type="hidden" id="receiver" value="{{ active_receiver or '' }}">
+
+          <div class="chat-header">
+            <div>
+              {% if active_receiver %}
+              <i class="fa-solid fa-user"></i> {{ active_receiver }}
+              {% else %}
+              <i class="fa-solid fa-hashtag"></i> {{ active_room }}
+              {% endif %}
+            </div>
+            <div class="actions">
+              <i id="btn-add-members" class="fa-solid fa-user-plus" title="Manage Members"></i>
+              <i id="btn-call" class="fa-solid fa-phone" onclick="startCall()"></i>
+              <i id="btn-video" class="fa-solid fa-video"></i>
+            </div>
+          </div>
+
+          <audio id="remoteAudio" autoplay style="display: none;"></audio>
+          <video id="localVideo" autoplay muted playsinline style="display:none; width: 200px;"></video>
+          <video id="remoteVideo" autoplay playsinline style="display:none; width: 200px;"></video>
+
+          <div id="call-ui" class="call-modal shadow-lg" style="display: none;">
+            <div class="call-header">
+              <p id="call-status" class="call-title">🔔 Ringing...</p>
+              <p id="call-timer" class="call-timer" style="display: none;">00:00</p>
+            </div>
+            <div class="call-actions">
+              <button id="btn-hangup" class="btn btn-hangup">🔴 Hang Up</button>
+              <button id="btn-video" class="btn btn-primary">📹 Video Call</button>
+            </div>
+          </div>
+
+          <div id="incoming-call" class="incoming-modal shadow-lg" style="display: none;">
+            <p class="incoming-text">📞 Incoming Audio Call From {{ active_receiver }}</p>
+            <div class="call-actions">
+              <button id="btn-accept" class="btn btn-accept">✅ Accept</button>
+              <button id="btn-reject" class="btn btn-reject">❌ Reject</button>
+            </div>
+          </div>
+
+          <div id="video-call-ui" class="call-modal shadow-lg" style="display: none;">
+            <div class="call-header">
+              <p id="video-call-status" class="call-title">📹 Ringing...</p>
+              <p id="video-call-timer" class="call-timer" style="display: none;">00:00</p>
+            </div>
+            <div class="call-actions">
+              <button id="btn-video-hangup" class="btn btn-hangup">🔴 Hang Up</button>
+            </div>
+          </div>
+
+          <div id="incoming-video-call" class="incoming-modal shadow-lg" style="display: none;">
+            <p class="incoming-text">📹 Incoming Video Call From {{ active_receiver }}</p>
+            <div class="call-actions">
+              <button id="btn-video-accept" class="btn btn-accept">✅ Accept</button>
+              <button id="btn-video-reject" class="btn btn-reject">❌ Reject</button>
+            </div>
+          </div>
+
+          <div id="messages-box" class="messages">
+            {% for s,m,ts in messages %}
+            <div class="message-wrapper {% if s==active_user %}right{% else %}left{% endif %}">
+              {% if s != active_user %}
+              <div class="sender">{{ s }}</div>
+              {% endif %}
+              <div class="message-bubble {{ 'right' if s==active_user else 'left' }}">
+                {% if m.startswith('/static/uploads/') %}
+                {% set ext = m.rsplit('.',1)[1].lower() %}
+                {% if ext in ['png','jpg','jpeg','gif'] %}
+                <img src="{{ m }}" style="max-width:200px;border-radius:.5rem">
+                {% else %}
+                <a href="{{ m }}" download>{{ m.rsplit('/',1)[1] }}</a>
+                {% endif %}
+                {% else %}
+                {{ m }}
+                {% endif %}
+              </div>
+              <div class="timestamp">{{ ts }}</div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="composer">
+            <div id="preview" class="preview"></div>
+            <textarea id="message" placeholder="Type a message…" rows="1"></textarea>
+            <div class="controls">
+              <button id="btn-attach" type="button" title="Attach file">
+                <i class="fa-solid fa-paperclip"></i>
+              </button>
+              <button id="btn-image" type="button" title="Send image">
+                <i class="fa-solid fa-image"></i>
+              </button>
+              <button id="btn-send" type="button" title="Send">
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+            <input type="file" id="file-input" style="display:none">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="member-drawer" class="offcanvas offcanvas-end" tabindex="-1">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Manage Members</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" onclick="location.href='/'"></button>
+    </div>
+    <div class="offcanvas-body" id="drawer-user-list">
+      <!-- Users will be loaded here dynamically -->
+    </div>
+  </div>
+
+  <!-- Scheduler overlay (kept) -->
+  <div id="schedule-overlay" role="dialog" aria-modal="true">
+    <div id="schedule-card">
+      <h4><i class="fa-regular fa-clock"></i> Schedule message</h4>
+      <div class="row"><input id="schedule-dt" type="datetime-local" /></div>
+      <div class="actions">
+        <button id="sch-cancel" type="button" class="btn btn-light border">Cancel</button>
+        <button id="sch-set" type="button" class="btn btn-primary">Set</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Old debug modal (left as-is) -->
+  <div id="incoming-call-modal"
+    style="display: none; position: fixed; top: 20px; right: 20px; background: white; padding: 20px; border: 2px solid black; z-index: 9999;">
+    <p id="caller-info"></p>
+    <button id="accept-call">Receive</button>
+    <button id="decline-call">Ignore</button>
+  </div>
+
+  <!-- Video call logic uses the shared socket -->
+  <script>
+let videoPeer = null;
+let videoStream = null;
+let videoCallStartTime = null;
+let videoTimerInterval = null;
+
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+const videoCallUI = document.getElementById('video-call-ui');
+const incomingVideoUI = document.getElementById('incoming-video-call');
+const videoCallStatus = document.getElementById('video-call-status');
+const videoCallTimer = document.getElementById('video-call-timer');
+const btnVideoHangup = document.getElementById('btn-video-hangup');
+const btnVideoAccept = document.getElementById('btn-video-accept');
+const btnVideoReject = document.getElementById('btn-video-reject');
+
+document.getElementById('btn-video')?.addEventListener('click', startVideoCall);
+
+async function startVideoCall() {
+  if (!targetUser) return alert("No target user selected");
+
+  videoCallStatus.textContent = `📹 Calling to ${targetUser}...`;
+  showVideoCallUI();
+
+  videoStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  localVideo.srcObject = videoStream;
+  localVideo.style.display = 'block';
+  remoteVideo.style.display = 'block';
+
+  videoPeer = createVideoPeer(true);
+
+  videoStream.getTracks().forEach(track => videoPeer.addTrack(track, videoStream));
+}
+
+socket.on('incoming-video-call', async data => {
+  const { offer, from } = data;
+  window.currentVideoCallUser = from;
+
+  videoCallStatus.textContent = `📹 Incoming video call from ${from}`;
+  showIncomingVideoUI();
+
+  videoPeer = createVideoPeer(false);
+  await videoPeer.setRemoteDescription(new RTCSessionDescription(offer));
+
+  videoStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  localVideo.srcObject = videoStream;
+  localVideo.style.display = 'block';
+  remoteVideo.style.display = 'block';
+
+  videoStream.getTracks().forEach(track => videoPeer.addTrack(track, videoStream));
+
+  const answer = await videoPeer.createAnswer();
+  await videoPeer.setLocalDescription(answer);
+
+  socket.emit("answer-video-call", { answer, to: from });
+});
+
+socket.on("video-call-answered", async answer => {
+  await videoPeer.setRemoteDescription(new RTCSessionDescription(answer));
+  videoCallStatus.textContent = `📹 In video call with ${targetUser}`;
+  startVideoTimer();
+});
+
+socket.on("video-ice-candidate", async candidate => {
+  if (videoPeer) {
+    try {
+      await videoPeer.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      console.error("❌ Error adding video ICE:", err);
+    }
+  }
+});
+
+socket.on("video-call-ended", () => stopVideoCall("🔴 Video call ended"));
+socket.on("video-call-rejected", () => stopVideoCall("❌ Video call rejected"));
+
+btnVideoAccept.addEventListener('click', () => {
+  incomingVideoUI.style.display = 'none';
+  videoCallUI.style.display = 'block';
+  videoCallTimer.style.display = 'inline';
+  startVideoTimer();
+});
+
+btnVideoReject.addEventListener('click', () => {
+  const receiver = window.currentVideoCallUser || targetUser;
+  socket.emit("reject-video-call", { to: receiver });
+  stopVideoCall("❌ Video call rejected");
+});
+
+btnVideoHangup.addEventListener('click', () => {
+  const receiver = window.currentVideoCallUser || targetUser;
+  socket.emit("hangup-video", { to: receiver });
+  stopVideoCall("🔴 You ended the video call");
+});
+
+function createVideoPeer(isInitiator) {
+  const p = new RTCPeerConnection();
+
+  p.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.emit("video-ice-candidate", {
+        to: window.currentVideoCallUser || targetUser,
+        candidate: e.candidate
+      });
+    }
+  };
+
+  p.ontrack = (e) => {
+    console.log("📺 Remote video stream received");
+    remoteVideo.srcObject = e.streams[0];
+  };
+
+  if (isInitiator) {
+    p.onnegotiationneeded = async () => {
+      const offer = await p.createOffer();
+      await p.setLocalDescription(offer);
+      socket.emit("call-user-video", {
+        offer,
+        to: targetUser,
+        from: currentUser
+      });
+    };
+  }
+
+  return p;
+}
+
+function showVideoCallUI() {
+  videoCallUI.style.display = 'block';
+  videoCallTimer.style.display = 'none';
+}
+
+function showIncomingVideoUI() {
+  incomingVideoUI.style.display = 'block';
+}
+
+function stopVideoCall(message) {
+  if (videoPeer) {
+    videoPeer.close();
+    videoPeer = null;
+  }
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+  clearInterval(videoTimerInterval);
+  videoCallStatus.textContent = message;
+  videoCallTimer.style.display = 'none';
+  videoCallUI.style.display = 'none';
+  incomingVideoUI.style.display = 'none';
+  localVideo.style.display = 'none';
+  remoteVideo.style.display = 'none';
+}
+
+function startVideoTimer() {
+  videoCallStartTime = Date.now();
+  videoCallTimer.style.display = 'inline';
+  videoTimerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - videoCallStartTime) / 1000);
+    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const secs = String(elapsed % 60).padStart(2, '0');
+    videoCallTimer.textContent = `${mins}:${secs}`;
+  }, 1000);
+}
+  </script>
+
+  <!-- Bootstrap bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Messages, scheduler, audio call (uses the same shared socket) -->
+  <script>
+    const socket = window.socket,   // use the single shared connection
+      msgBox = document.getElementById('messages-box'),
+      txt = document.getElementById('message'),
+      btnSend = document.getElementById('btn-send'),
+      btnAttach = document.getElementById('btn-attach'),
+      btnImage = document.getElementById('btn-image'),
+      fileIn = document.getElementById('file-input'),
+      preview = document.getElementById('preview');
+
+    /* ====== Scheduler state (added) ====== */
+    const scheduleOverlay = document.getElementById('schedule-overlay');
+    const scheduleInput   = document.getElementById('schedule-dt');
+    const schCancel       = document.getElementById('sch-cancel');
+    const schSet          = document.getElementById('sch-set');
+    let scheduleState = { enabled:false, when:null };
+    let holdTimer = null, clickTimer = null;
+
+    function pad(n){ return n<10 ? '0'+n : n; }
+    function toLocalInputValue(d){
+      return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) +
+             'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    function openScheduler(){
+      const d = new Date(Date.now() + 5*60*1000);
+      if (scheduleInput) scheduleInput.value = toLocalInputValue(d);
+      if (scheduleOverlay) scheduleOverlay.style.display = 'flex';
+    }
+    function closeScheduler(){ if (scheduleOverlay) scheduleOverlay.style.display = 'none'; }
+    schCancel?.addEventListener('click', closeScheduler);
+    schSet?.addEventListener('click', () => {
+      const v = scheduleInput.value;
+      if (!v) return closeScheduler();
+      const when = new Date(v);
+      if (isNaN(when.getTime())) return closeScheduler();
+      scheduleState = { enabled:true, when };
+      closeScheduler();
+    });
+
+    let pendingFile = null;
+
+    // Sidebar call icons trigger topbar
+    document.getElementById('sidebar-voice-call')?.addEventListener('click', () => {
+      document.getElementById('btn-call')?.click();
+    });
+    document.getElementById('sidebar-video-call')?.addEventListener('click', () => {
+      document.getElementById('btn-video')?.click();
+    });
+
+    // SEARCH ON KEYUP
+    document.getElementById("search-box").addEventListener("keyup", function () {
+      const query = this.value.toLowerCase();
+      document.querySelectorAll("#room-list .list-group-item").forEach(item => {
+        const txt = item.textContent.toLowerCase();
+        item.style.display = txt.includes(query) ? "" : "none";
+      });
+      document.querySelectorAll("#user-list .list-group-item").forEach(item => {
+        const txt = item.textContent.toLowerCase();
+        item.style.display = txt.includes(query) ? "" : "none";
+      });
+    });
+
+    // ENTER → jump to the single visible result
+    document.getElementById("search-box").addEventListener("keypress", e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const all = Array.from(
+          document.querySelectorAll('#room-list a, #user-list a')
+        ).filter(a => a.style.display !== 'none');
+        if (all.length === 1) location = all[0].href;
+      }
+    });
+
+    // Attachments
+    btnAttach.addEventListener('click', () => { fileIn.accept='*/*'; fileIn.click(); });
+    btnImage .addEventListener('click', () => { fileIn.accept='image/*'; fileIn.click(); });
+    fileIn.addEventListener('change', () => {
+      const f = fileIn.files[0];
+      fileIn.value = '';
+      if (!f) return;
+      pendingFile = f;
+      preview.innerHTML = '';
+      if (f.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        preview.appendChild(img);
+      } else {
+        const span = document.createElement('span');
+        span.className = 'file-name';
+        span.textContent = f.name;
+        preview.appendChild(span);
+      }
+      const btn = document.createElement('button');
+      btn.innerHTML = '&times;';
+      btn.addEventListener('click', () => { pendingFile=null; preview.innerHTML=''; });
+      preview.appendChild(btn);
+    });
+
+    /* ====== Send / Schedule triggers ====== */
+    btnSend.addEventListener('click', () => {
+      if (clickTimer) return;
+      clickTimer = setTimeout(() => {
+        clickTimer = null;
+        (scheduleState.enabled && scheduleState.when) ? handleScheduledSend() : sendAll();
+      }, 250);
+    });
+    btnSend.addEventListener('dblclick', (e) => {
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      e.preventDefault();
+      openScheduler();
+    });
+    btnSend.addEventListener('mousedown', () => { holdTimer = setTimeout(openScheduler, 600); });
+    ['mouseup','mouseleave'].forEach(ev => btnSend.addEventListener(ev, () => {
+      if (holdTimer){ clearTimeout(holdTimer); holdTimer = null; }
+    }));
+    txt.addEventListener('keypress', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        (scheduleState.enabled && scheduleState.when) ? handleScheduledSend() : sendAll();
+      }
+    });
+
+    function appendScheduledSelf(content, when){
+      const isImg = /\.(png|jpe?g|gif)$/i.test(content);
+      const isUploadUrl = typeof content === 'string' && content.startsWith('/static/uploads/');
+      let htmlContent = '';
+      if (isUploadUrl && isImg) {
+        htmlContent = `<img src="${content}" style="max-width:200px;border-radius:.5rem">`;
+      } else if (isUploadUrl) {
+        const fn = content.split('/').pop();
+        htmlContent = `<a href="${content}" download>${fn}</a>`;
+      } else {
+        htmlContent = content.replace(/[&<>]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]));
+      }
+      const wrap = document.createElement('div'),
+            bubble = document.createElement('div'),
+            timeDiv = document.createElement('div'),
+            note = document.createElement('div');
+      wrap.className = 'message-wrapper right';
+      bubble.className = 'message-bubble right';
+      bubble.innerHTML = htmlContent;
+      timeDiv.className = 'timestamp';
+      timeDiv.textContent = when.toLocaleString();
+      note.className = 'scheduled-note';
+      note.textContent = '🕒 Scheduled for ' + when.toLocaleString();
+      wrap.appendChild(bubble);
+      wrap.appendChild(timeDiv);
+      wrap.appendChild(note);
+      msgBox.appendChild(wrap);
+      msgBox.scrollTop = msgBox.scrollHeight;
+      return wrap;
+    }
+
+    function finalizeScheduledPlaceholder(wrap){
+      const note = wrap && wrap.querySelector ? wrap.querySelector('.scheduled-note') : null;
+      if (note) note.remove();
+      const ts = wrap && wrap.querySelector ? wrap.querySelector('.timestamp') : null;
+      if (ts) ts.textContent = new Date().toLocaleString();
+    }
+
+    async function uploadFileAndGetUrl(file){
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch('/upload_file', { method: 'POST', body: fd });
+        const j = await r.json();
+        if (j && j.url) return j.url;
+      } catch(e) {}
+      return null;
+    }
+
+    async function handleScheduledSend(){
+      const crm = document.getElementById('chatroom').value || null;
+      const rcv = document.getElementById('receiver').value || null;
+      const text = txt.value.trim();
+      const when = scheduleState.when;
+      const delay = Math.max(0, when.getTime() - Date.now());
+
+      const tasks = [];
+      if (pendingFile) {
+        const url = await uploadFileAndGetUrl(pendingFile);
+        if (url) tasks.push({ toSend: url });
+      }
+      if (text) tasks.push({ toSend: text });
+      if (!tasks.length) { scheduleState = {enabled:false, when:null}; return; }
+
+      tasks.forEach(task => {
+        const placeholder = appendScheduledSelf(task.toSend, when);
+        setTimeout(() => {
+          socket.emit('send_message', { message: task.toSend, chatroom: crm, receiver: rcv });
+          finalizeScheduledPlaceholder(placeholder);
+        }, delay);
+      });
+
+      pendingFile = null;
+      preview.innerHTML = '';
+      txt.value = '';
+      scheduleState = { enabled:false, when:null };
+    }
+
+    function sendAll() {
+      const crm = document.getElementById('chatroom').value || null,
+        rcv = document.getElementById('receiver').value || null,
+        text = txt.value.trim();
+
+      // pure text
+      if (text && !pendingFile) {
+        socket.emit('send_message', { message: text, chatroom: crm, receiver: rcv });
+        appendSelf(text, new Date().toLocaleTimeString());
+        txt.value = '';
+        return;
+      }
+
+      // text + file
+      if (text && pendingFile) {
+        socket.emit('send_message', { message: text, chatroom: crm, receiver: rcv });
+        appendSelf(text, new Date().toLocaleTimeString());
+      }
+
+      // upload & send file
+      if (pendingFile) {
+        const fd = new FormData();
+        fd.append('file', pendingFile);
+        fetch('/upload_file', { method: 'POST', body: fd })
+          .then(r => r.json()).then(j => {
+            if (j.url) {
+              socket.emit('send_message', { message: j.url, chatroom: crm, receiver: rcv });
+              const isImg = /\.(png|jpe?g|gif)$/i.test(j.url);
+              const html = isImg
+                ? `<img src="${j.url}" style="max-width:200px;border-radius:.5rem">`
+                : `<a href="${j.url}" download>${pendingFile.name}</a>`;
+              appendSelf(html, new Date().toLocaleTimeString(), true);
+            }
+          })
+          .finally(() => {
+            pendingFile = null;
+            preview.innerHTML = '';
+            txt.value = '';
+          });
+      }
+    }
+
+    socket.on('receive_message', data => {
+      const crm = document.getElementById('chatroom').value || null,
+        rcv = document.getElementById('receiver').value || null;
+      const isGrp = !data.receiver && data.chatroom === crm,
+        isDMtoMe = data.receiver === '{{ active_user }}' && data.sender === rcv,
+        isDMfromMe = data.receiver === rcv && data.sender === '{{ active_user }}';
+      if (!(isGrp || isDMtoMe || isDMfromMe)) return;
+
+      const me = data.sender === '{{ active_user }}';
+      const wrap = document.createElement('div');
+      wrap.className = 'message-wrapper ' + (me ? 'right' : 'left');
+
+      if (!me) {
+        const name = document.createElement('div');
+        name.className = 'sender';
+        name.textContent = data.sender;
+        wrap.appendChild(name);
+      }
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble ' + (me ? 'right' : 'left');
+      if (data.message.startsWith('/static/uploads/')) {
+        if (/\.(png|jpe?g|gif)$/i.test(data.message)) {
+          bubble.innerHTML = `<img src="${data.message}" style="max-width:200px;border-radius:.5rem">`;
+        } else {
+          const fn = data.message.split('/').pop();
+          bubble.innerHTML = `<a href="${data.message}" download>${fn}</a>`;
+        }
+      } else {
+        bubble.innerHTML = data.message;
+      }
+      wrap.appendChild(bubble);
+
+      const ts = document.createElement('div');
+      ts.className = 'timestamp';
+      ts.textContent = data.timestamp;
+      wrap.appendChild(ts);
+
+      msgBox.appendChild(wrap);
+      msgBox.scrollTop = msgBox.scrollHeight;
+    });
+
+    function appendSelf(content, ts, isHTML = false) {
+      const wrap = document.createElement('div'),
+        bubble = document.createElement('div'),
+        timeDiv = document.createElement('div');
+      wrap.className = 'message-wrapper right';
+      bubble.className = 'message-bubble right';
+      if (isHTML) bubble.innerHTML = content;
+      else bubble.textContent = content;
+      wrap.appendChild(bubble);
+      timeDiv.className = 'timestamp';
+      timeDiv.textContent = ts;
+      wrap.appendChild(timeDiv);
+      msgBox.appendChild(wrap);
+      msgBox.scrollTop = msgBox.scrollHeight;
+    }
+
+    const selectedUserIds = new Set();
+
+    // When member item is clicked
+    document.addEventListener("DOMContentLoaded", () => {
+      const listItems = document.querySelectorAll("#member-select-list .list-group-item");
+      const selectedDisplay = document.getElementById("selected-display");
+      const hiddenInput = document.getElementById("selected-members");
+
+      listItems.forEach(item => {
+        item.addEventListener("click", (e) => {
+          e.preventDefault();
+          const userId = item.getAttribute("data-username");
+
+          if (selectedUserIds.has(userId)) {
+            selectedUserIds.delete(userId);
+            item.classList.remove("active");
+          } else {
+            selectedUserIds.add(userId);
+            item.classList.add("active");
+          }
+
+          hiddenInput.value = JSON.stringify([...selectedUserIds]);
+
+          selectedDisplay.innerHTML = [...selectedUserIds].map(id => {
+            const el = document.querySelector(`[data-username="${id}"]`);
+            return `<span class="badge bg-info text-dark me-1">${el.textContent.trim()}</span>`;
+          }).join("");
+        });
+      });
+    });
+
+    function filterMembers(input) {
+      const filter = input.value.toLowerCase();
+      document.querySelectorAll("#member-select-list .list-group-item").forEach(item => {
+        const name = item.textContent.toLowerCase();
+        item.style.display = name.includes(filter) ? '' : 'none';
+      });
+    }
+
+    const selected = new Set();
+    const selectedDisplay = document.getElementById("selected-display");
+    const hiddenInput = document.getElementById("selected-members");
+
+    function updateSelectedDisplay() {
+      selectedDisplay.innerHTML = "";
+      selected.forEach(id => {
+        const el = document.createElement("span");
+        el.className = "badge bg-primary me-1";
+        el.textContent = id;
+        selectedDisplay.appendChild(el);
+      });
+      hiddenInput.value = JSON.stringify(Array.from(selected));
+    }
+
+    if (document.getElementById("member-select-list")) {
+      document.querySelectorAll("#member-select-list .list-group-item").forEach(item => {
+        item.addEventListener("click", e => {
+          e.preventDefault();
+          const uid = item.getAttribute("data-username");
+          if (selected.has(uid)) selected.delete(uid);
+          else selected.add(uid);
+          updateSelectedDisplay();
+        });
+      });
+      updateSelectedDisplay();
+    }
+
+    socket.on('user_status', data => {
+      const user = data.user, status = data.status;
+      const items = document.querySelectorAll('#user-list .list-group-item');
+      items.forEach(item => {
+        if (item.textContent.includes(user)) {
+          const span = item.querySelector('.time-sm');
+          if (status === 'online') {
+            span.innerHTML = '<span class="text-success">Online</span>';
+          } else {
+            span.textContent = 'Last seen just now';
+          }
+        }
+      });
+    });
+
+    document.getElementById("btn-add-members").addEventListener("click", () => {
+      const chatroom = document.getElementById("chatroom").value;
+      if (!chatroom) return;
+
+      fetch(`/chatroom_members/${chatroom}`)
+        .then(res => res.json())
+        .then(data => {
+          const users = data.users;
+          const members = new Set(data.members);
+          const container = document.getElementById("drawer-user-list");
+          container.innerHTML = '';
+
+          const title = document.createElement("div");
+          title.className = "member-section-title";
+          title.textContent = "Current Participants";
+          container.appendChild(title);
+
+          const memberList = document.createElement("div");
+          memberList.id = "member-list";
+          container.appendChild(memberList);
+
+          users.forEach(u => {
+            if (!members.has(u.id)) return;
+
+            const row = document.createElement("div");
+            row.className = "member-row";
+
+            const label = document.createElement("label");
+            label.className = "form-check-label member-label";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "form-check-input me-2";
+            checkbox.value = u.id;
+
+            const avatar = document.createElement("div");
+            avatar.className = "member-avatar";
+            avatar.textContent = u.name[0].toUpperCase();
+            const name = document.createElement("span");
+            name.textContent = u.name;
+
+            label.appendChild(checkbox);
+            label.appendChild(avatar);
+            label.appendChild(name);
+            row.appendChild(label);
+            memberList.appendChild(row);
+          });
+
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn btn-outline-danger w-100 mt-2";
+          removeBtn.textContent = "Remove Selected";
+          removeBtn.addEventListener("click", () => {
+            const selected = Array.from(memberList.querySelectorAll("input:checked")).map(cb => cb.value);
+            if (selected.length === 0) return alert("Select at least one member to remove.");
+            selected.forEach(uid => {
+              fetch(`/group_member_action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatroom, user_id: uid, action: 'remove' })
+              });
+            });
+            setTimeout(() => document.getElementById("btn-add-members").click(), 500);
+          });
+          container.appendChild(removeBtn);
+
+          const addBtn = document.createElement("button");
+          addBtn.className = "btn btn-outline-primary w-100 mt-4";
+          addBtn.textContent = "Add Participants";
+          container.appendChild(addBtn);
+
+          const addSection = document.createElement("div");
+          addSection.style.display = "none";
+          container.appendChild(addSection);
+
+          addBtn.addEventListener("click", () => {
+            addBtn.style.display = "none";
+            addSection.style.display = "block";
+
+            const addTitle = document.createElement("div");
+            addTitle.className = "member-section-title mt-4";
+            addTitle.textContent = "Available Users";
+            addSection.appendChild(addTitle);
+
+            const searchWrapper = document.createElement("div");
+            searchWrapper.className = "input-group mb-3";
+
+            const searchIcon = document.createElement("span");
+            searchIcon.className = "input-group-text";
+            searchIcon.innerHTML = '<i class="fa fa-search"></i>';
+
+            const searchInput = document.createElement("input");
+            searchInput.type = "text";
+            searchInput.placeholder = "Search users...";
+            searchInput.className = "form-control";
+
+            searchWrapper.appendChild(searchIcon);
+            searchWrapper.appendChild(searchInput);
+            addSection.appendChild(searchWrapper);
+
+            const userList = document.createElement("div");
+            userList.id = "add-user-list";
+            addSection.appendChild(userList);
+
+            users.forEach(u => {
+              if (members.has(u.id)) return;
+
+              const row = document.createElement("div");
+              row.className = "member-row user-item";
+
+              const label = document.createElement("label");
+              label.className = "form-check-label member-label";
+
+              const checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.className = "form-check-input me-2";
+              checkbox.value = u.id;
+
+              const avatar = document.createElement("div");
+              avatar.className = "member-avatar";
+              avatar.textContent = u.name[0].toUpperCase();
+
+              const name = document.createElement("span");
+              name.className = "user-name";
+              name.textContent = u.name;
+
+              label.appendChild(checkbox);
+              label.appendChild(avatar);
+              label.appendChild(name);
+              row.appendChild(label);
+              userList.appendChild(row);
+            });
+
+            const addSelectedBtn = document.createElement("button");
+            addSelectedBtn.className = "btn btn-success w-100 mt-2";
+            addSelectedBtn.textContent = "Add Selected";
+            addSelectedBtn.addEventListener("click", () => {
+              const selected = Array.from(userList.querySelectorAll("input:checked")).map(cb => cb.value);
+              if (selected.length === 0) return alert("Select at least one user to add.");
+              selected.forEach(uid => {
+                fetch(`/group_member_action`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chatroom, user_id: uid, action: 'add' })
+                });
+              });
+              setTimeout(() => document.getElementById("btn-add-members").click(), 500);
+            });
+
+            addSection.appendChild(addSelectedBtn);
+
+            // Search filter
+            searchInput.addEventListener("keyup", () => {
+              const term = searchInput.value.toLowerCase();
+              document.querySelectorAll("#add-user-list .user-item").forEach(row => {
+                const name = row.querySelector(".user-name").textContent.toLowerCase();
+                row.style.display = name.includes(term) ? "" : "none";
+              });
+            });
+          });
+
+          const offcanvas = new bootstrap.Offcanvas('#member-drawer');
+          offcanvas.show();
+        });
+    });
+
+
+const currentUser = "{{ session['username'] }}";
+const targetUser = "{{ active_receiver or '' }}";
+
+const callUI = document.getElementById('call-ui');
+const incomingUI = document.getElementById('incoming-call');
+const callStatus = document.getElementById('call-status');
+const callTimer = document.getElementById('call-timer');
+const remoteAudio = document.getElementById('remoteAudio');
+
+const btnHangup = document.getElementById('btn-hangup');
+const btnAccept = document.getElementById('btn-accept');
+const btnReject = document.getElementById('btn-reject');
+
+let peer = null;
+let localStream = null;
+let callStartTime = null;
+let timerInterval = null;
+
+// Socket.IO connect
+socket.on('connect', () => {
+  console.log("✅ Socket connected");
+});
+
+// ───── Initiate Call ─────
+async function startCall() {
+  if (!targetUser) return alert("No target user selected");
+
+  callStatus.textContent = `📞 Calling to ${targetUser}...`;
+  showCallUI();
+
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  peer = createPeer(true);
+
+  localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+}
+
+// ───── Incoming Call ─────
+socket.on('incoming-call', async data => {
+  const { offer, from } = data;
+  window.currentCallUser = from;
+
+  callStatus.textContent = `📞 Incoming call from ${from}`;
+  showIncomingUI();
+
+  peer = createPeer(false);
+  await peer.setRemoteDescription(new RTCSessionDescription(offer));
+
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+
+  const answer = await peer.createAnswer();
+  await peer.setLocalDescription(answer);
+
+  socket.emit("answer-call", { answer, to: from });
+});
+
+// ───── Call Answered ─────
+socket.on("call-answered", async answer => {
+  await peer.setRemoteDescription(new RTCSessionDescription(answer));
+  callStatus.textContent = `🔊 In call with ${targetUser}`;
+  startTimer();
+});
+
+// ───── ICE Candidates ─────
+socket.on("ice-candidate", async candidate => {
+  if (peer) {
+    try {
+      await peer.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      console.error("Error adding ICE:", err);
+    }
+  }
+});
+
+// ───── Call Ended ─────
+socket.on("call-ended", () => {
+  stopCall("🔴 Call ended");
+});
+
+// ───── Call Rejected ─────
+socket.on("call-rejected", () => {
+  stopCall("❌ Call rejected");
+});
+
+// ───── Accept / Reject Buttons ─────
+btnAccept.addEventListener('click', () => {
+  incomingUI.style.display = 'none';
+  callUI.style.display = 'block';
+  callTimer.style.display = 'inline';
+  startTimer();
+});
+
+btnReject.addEventListener('click', () => {
+  const receiver = window.currentCallUser || targetUser;
+  socket.emit("reject-call", { to: receiver });
+  stopCall("❌ Call rejected");
+});
+
+btnHangup.addEventListener('click', () => {
+  const receiver = window.currentCallUser || targetUser;
+  socket.emit("hangup", { to: receiver });
+  stopCall("🔴 You ended the call");
+});
+
+// ───── Create Peer ─────
+function createPeer(isInitiator) {
+  const p = new RTCPeerConnection();
+
+  p.onicecandidate = (e) => {
+    if (e.candidate) {
+      socket.emit("ice-candidate", {
+        to: window.currentCallUser || targetUser,
+        candidate: e.candidate
+      });
+    }
+  };
+
+  p.ontrack = (e) => {
+    console.log("🎧 Remote stream received");
+    remoteAudio.srcObject = e.streams[0];
+  };
+
+  if (isInitiator) {
+    p.onnegotiationneeded = async () => {
+      const offer = await p.createOffer();
+      await p.setLocalDescription(offer);
+      socket.emit("call-user", {
+        offer,
+        to: targetUser,
+        from: currentUser
+      });
+    };
+  }
+
+  return p;
+}
+
+// ───── UI Helpers ─────
+function showCallUI() {
+  callUI.style.display = 'block';
+  callTimer.style.display = 'none';
+}
+
+function showIncomingUI() {
+  incomingUI.style.display = 'block';
+}
+
+function stopCall(message) {
+  if (peer) {
+    peer.close();
+    peer = null;
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  clearInterval(timerInterval);
+  callStatus.textContent = message;
+  callTimer.style.display = 'none';
+  callUI.style.display = 'none';
+  incomingUI.style.display = 'none';
+}
+
+// ───── Timer ─────
+function startTimer() {
+  callStartTime = Date.now();
+  callTimer.style.display = 'inline';
+  timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const secs = String(elapsed % 60).padStart(2, '0');
+    callTimer.textContent = `${mins}:${secs}`;
+  }, 1000);
+}
+  </script>
+</body>
+
+</html>

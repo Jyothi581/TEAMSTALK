@@ -1,0 +1,12 @@
+{
+  // 1️⃣ Tell VS Code that *.html are Jinja templates
+  "files.associations": {
+    "*.html": "jinja-html"
+  },
+
+  // 2️⃣ Disable HTML-embedded JS validation
+  "html.validate.scripts": false,
+
+  // 3️⃣ Turn off generic JS validation in HTML files
+  "javascript.validate.enable": false
+}
